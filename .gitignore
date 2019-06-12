@@ -1,0 +1,26 @@
+# MacOS Files
+.DS_Store
+
+# python complie file
+*.pyc
+
+# env bootstrap
+*/bootstrap.ini
+
+# output file
+*.json
+*.csv
+*.xlsx
+*.txt
+*.mp4
+
+# log file
+*.log
+
+# IntelliJ Files
+.idea/
+*.iml
+.idea/*.xml
+
+# python env
+venv
