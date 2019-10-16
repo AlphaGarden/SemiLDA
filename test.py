@@ -68,8 +68,20 @@ def convert_result(file_name):
     plt.ylabel("Log Likelihood")
     plt.show()
 
+def convert_ocr_data(filename):
+    output_data = {}
+    with open(filename, 'r') as fp:
+        ocr_data = json.load(fp)
+        fp.close()
+    if ocr_data:
+        for key, text in ocr_data.items():
+            pid = str(key).split("/")[2]
+            if pid not in output_data.keys():
+                output_data[pid] = list()
+            output_data[pid].append(ocr_data[key])
+    with open('ocr_results.json', 'w') as fp:
+        json.dump(output_data, fp)
+        fp.close()
 
 if __name__ == '__main__':
-    a = [{'a1' : 1}, {'a2': 2}]
-    b = [{'b1' : 1}, {'b2' : 2}]
-    print(a + b)
+    convert_ocr_data('/Users/garden/PycharmProjects/KickstarterLDA/data/ocr/ocr_results_518_610.json')

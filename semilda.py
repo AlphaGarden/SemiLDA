@@ -27,6 +27,9 @@ TRANSCRIPTIONS = 'transcriptions/'
 OCR = 'ocr/'
 CLEAN_DATA = 'clean_data/'
 COMBINE_DATA = 'combine_data/'
+KS_PROJECT = 'ksproject/'
+
+KS_PROJECT_FILE_PATH = DATA_PATH + KS_PROJECT + 'ksProject.xlsx'
 
 STOP_WORDS_FILE_PATH = DATA_PATH + WORD + 'stop_word_list.txt'
 SEED_WORDS_FILE_PATH = DATA_PATH + WORD + 'seed_word.txt'
@@ -84,7 +87,6 @@ def run_corextopic():
         print(row)
     topics = model.get_topics(topic=0, n_words=25)
     print(topics)
-
 
 
 def guided_analysis(X, word2id, topic_num, confidence, seed_topic_list):
@@ -205,11 +207,11 @@ def export_loading(type):
     if type == 'combination':
         model = guided_analysis(X, word2id, 150, SEED_CONFIDENCE, seed_topic_list)
         calculate_loading(model, 150, seed_topic_list)
-        export_loading_to_excel(model, seed_topic_list)
+        return export_loading_to_excel(model, seed_topic_list)
     elif type == 'transcription':
         model = guided_analysis(X, word2id, 50, SEED_CONFIDENCE, seed_topic_list)
         calculate_loading(model, 50, seed_topic_list)
-        export_transcription_loading(model, seed_topic_list)
+        return export_transcription_loading(model, seed_topic_list)
 
 
 def export_transcription_loading(model, seed_topic_list):
@@ -225,6 +227,43 @@ def export_transcription_loading(model, seed_topic_list):
             row.append(format_digit(nar_doc_topic[doc_id][topic_id]))
         output_data.append(row)
     pd.DataFrame(output_data).to_excel('nar_loading.xlsx', header=keys, index=False)
+
+
+def match_KsProject():
+    seed_topic_list = load_seed_words()
+    X, word2id, vocab = load_data('transcription')
+    model = guided_analysis(X, word2id, 50, SEED_CONFIDENCE, seed_topic_list)
+    calculate_loading(model, 50, seed_topic_list)
+    ks_projects_list = read_excel(KS_PROJECT_FILE_PATH, 'Sheet1')
+    ks_pids = ks_projects_list['ProjectId'].values
+    data_list = read_json(RAW_TRANSCRIPTION_CACHE_FILE)
+    nar_doc_topic = model.doc_topic_
+    pid2row = {}
+    for i, project in enumerate(data_list):
+        pid2row[project['id']] = i
+    keys = ['ProjectID'] + TRANSCRIPTION_COLUMN
+    seed_topic_num = len(seed_topic_list.keys())
+    output_data = []
+    for pid in ks_pids:
+        row = [pid]
+        pid = str(pid)
+        if pid in pid2row.keys():
+            for topic_id in range(seed_topic_num):
+                row.append(format_digit(nar_doc_topic[pid2row[pid]][topic_id]))
+        else:
+            row.extend([0] * seed_topic_num)
+        output_data.append(row)
+    pd.DataFrame(output_data).to_excel('matched_nar_loading.xlsx', header=keys, index=False)
+
+def match_KsProject_order_loading(filename, outout_data):
+    keys = ['ProjectID'] + LOADING_COLUMN
+    new_output_data = []
+    ks_projects_list = read_excel(KS_PROJECT_FILE_PATH, 'Sheet1')
+    ks_pids = ks_projects_list['ProjectId'].values
+    for pid in ks_pids:
+        pid = str(pid)
+        new_output_data.append(outout_data[pid])
+    pd.DataFrame(new_output_data).to_excel('matched_ksPoject_loading.xlsx', header=keys, index=False)
 
 
 def export_loading_to_excel(model, seed_topic_list):
@@ -278,6 +317,7 @@ def export_loading_to_excel(model, seed_topic_list):
                 format_digit(1 - spatial.distance.cosine(des_loading, nar_loading)))
     print("Total transcriptions: " + str(i))
     pd.DataFrame(output_data.values()).to_excel('loading.xlsx', header=keys, index=False)
+    return output_data
 
 
 def dt_matrix(model, n_top_docs, topic_num):
@@ -538,6 +578,18 @@ def read_ocr_texts_from_path(path):
                 pid_set.add(project['id'])
     return data_list
 
+def format_compaign():
+    data_list = read_json(RAW_COMBINATION_DATA_CACHE_FILE)
+    for project in data_list:
+        if 'ProjectCampaign' in project.keys():
+            project['ProjectCampaign'] = (" ".join(project['ProjectCampaign'])).replace('\n', '')
+    dump_json(data_list, 'formatted_campaign.json')
+
+
+def read_excel(path, sheet_name = None):
+    df = pd.read_excel(path, sheet_name)
+    return df
+
 
 def combine(campaign_list, ocr_text_list):
     pid2index = {}
@@ -625,4 +677,5 @@ def load_data(doc_type):
 
 
 if __name__ == '__main__':
-    export_loading('transcription')
+    # format_compaign()
+    match_KsProject_order_loading(KS_PROJECT_FILE_PATH, export_loading('combination'))
